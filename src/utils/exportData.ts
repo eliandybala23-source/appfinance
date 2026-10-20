@@ -1,33 +1,32 @@
-import { Transaction, Category } from '../db/db';
+import { Transaction, Category } from '../db/db'
 
 export function exportToCSV(transactions: Transaction[], categories: Category[]): void {
-    let csvContent = 'Data;Tipo;Descrição;Categoria;Valor\n';
-    transactions.forEach(transaction => {
-        const category = categories.find(cat => cat.id === transaction.categoryId);
-        const line = `${transaction.date};${transaction.type};${transaction.description};${category?.name || 'N/A'};${transaction.amount}\n`;
-        csvContent += line;
-    });
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'financas.csv';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  const categoryMap = new Map(categories.map(c => [c.id, c.name]))
+  const headers = ['Data', 'Tipo', 'Descrição', 'Categoria', 'Valor (R$)']
+  const rows = transactions.map(t => [
+    t.date,
+    t.type === 'income' ? 'Receita' : 'Despesa',
+    t.description,
+    categoryMap.get(t.categoryId) || 'Geral',
+    (t.amount / 100).toFixed(2).replace('.', ',')
+  ])
+  const csvContent = [headers.join(';'), ...rows.map(r => r.join(';'))].join('\n')
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'financas.csv'
+  a.click()
+  URL.revokeObjectURL(url)
 }
 
-export function exportToJSON(transactions: Transaction[]): void {
-    const jsonContent = JSON.stringify(transactions, null, 2);
-    const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'backup_financas.json';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+export function exportToJSON(transactions: Transaction[], categories: Category[]): void {
+  const data = JSON.stringify({ transactions, categories }, null, 2)
+  const blob = new Blob([data], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'backup_financas.json'
+  a.click()
+  URL.revokeObjectURL(url)
 }
