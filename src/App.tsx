@@ -4,6 +4,7 @@ import { db, initDefaultCategories, Category, Transaction } from './db/db'
 import { Header } from './components/Header'
 import { TransactionList } from './components/TransactionList'
 import { TransactionModal } from './components/TransactionModal'
+import { MonthlySummary } from './components/MonthlySummary'
 
 export function App() {
   const [categories, setCategories] = useState<Category[]>([])
@@ -59,6 +60,7 @@ export function App() {
 
       {/* Conteúdo Principal */}
       <main className="flex-1 p-4 pb-24 overflow-y-auto">
+        <MonthlySummary transactions={transactions} />
         <TransactionList
           transactions={transactions}
           categories={categories}
