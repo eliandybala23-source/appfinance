@@ -1,18 +1,23 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, Download, FileSpreadsheet } from 'lucide-react'
 import { db, initDefaultCategories, Category, Transaction } from './db/db'
 import { Header } from './components/Header'
 import { TransactionList } from './components/TransactionList'
 import { TransactionModal } from './components/TransactionModal'
 import { MonthlySummary } from './components/MonthlySummary'
+import { MonthFilter } from './components/MonthFilter'
+import { CategoryBreakdown } from './components/CategoryBreakdown'
+import { BudgetAlert } from './components/BudgetAlert'
+import { exportToCSV, exportToJSON } from './utils/exportData'
 
 export function App() {
   const [categories, setCategories] = useState<Category[]>([])
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isOnline, setIsOnline] = useState(navigator.onLine)
+  const [currentMonth, setCurrentMonth] = useState(new Date().toISOString().slice(0, 7))
+  const [monthlyLimitCents] = useState(300000) // R$ 3.000,00 de teto padrão
 
-  // Monitora conectividade para o selo offline
   useEffect(() => {
     const handleOnline = () => setIsOnline(true)
     const handleOffline = () => setIsOnline(false)
@@ -26,7 +31,6 @@ export function App() {
     }
   }, [])
 
-  // Carrega categorias e transações do IndexedDB local
   const loadData = useCallback(async () => {
     await initDefaultCategories()
     const allCategories = await db.categories.orderBy('order').toArray()
@@ -40,29 +44,62 @@ export function App() {
     loadData()
   }, [loadData])
 
-  // Cálculos de saldo
-  const totalIncome = transactions
+  // Filtra transações pelo mês selecionado
+  const monthTransactions = transactions.filter((t) => t.date.startsWith(currentMonth))
+
+  // Cálculos baseados no mês selecionado
+  const totalIncome = monthTransactions
     .filter((t) => t.type === 'income')
     .reduce((acc, t) => acc + t.amount, 0)
 
-  const totalExpense = transactions
+  const totalExpense = monthTransactions
     .filter((t) => t.type === 'expense')
     .reduce((acc, t) => acc + t.amount, 0)
 
   return (
     <div className="max-w-md mx-auto min-h-screen flex flex-col bg-slate-900 text-slate-100 shadow-2xl relative">
-      {/* Cabeçalho Fixo com Saldo e Status Offline */}
+      {/* Cabeçalho Fixo */}
       <Header
         totalIncome={totalIncome}
         totalExpense={totalExpense}
         isOnline={isOnline}
       />
 
-      {/* Conteúdo Principal */}
-      <main className="flex-1 p-4 pb-24 overflow-y-auto">
-        <MonthlySummary transactions={transactions} />
+      {/* Conteúdo Principal com todas as novidades autônomas */}
+      <main className="flex-1 p-4 pb-28 overflow-y-auto">
+        {/* Navegador de Meses */}
+        <MonthFilter currentMonth={currentMonth} onMonthChange={setCurrentMonth} />
+
+        {/* Alerta de Orçamento (Teto Mensal) */}
+        <BudgetAlert totalSpentCents={totalExpense} monthlyLimitCents={monthlyLimitCents} />
+
+        {/* Resumo Mensal */}
+        <MonthlySummary transactions={monthTransactions} />
+
+        {/* Barras de Gastos por Categoria */}
+        <CategoryBreakdown transactions={monthTransactions} categories={categories} />
+
+        {/* Botões de Ação Rápida de Backup e Exportação */}
+        <div className="flex gap-2 mb-4">
+          <button
+            onClick={() => exportToCSV(transactions, categories)}
+            className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-semibold bg-slate-800/80 border border-slate-700 hover:bg-slate-700 text-slate-300 transition active:scale-95"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+            Exportar CSV
+          </button>
+          <button
+            onClick={() => exportToJSON(transactions, categories)}
+            className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-semibold bg-slate-800/80 border border-slate-700 hover:bg-slate-700 text-slate-300 transition active:scale-95"
+          >
+            <Download className="w-4 h-4 text-blue-400" />
+            Backup JSON
+          </button>
+        </div>
+
+        {/* Listagem de Transações Filtradas */}
         <TransactionList
-          transactions={transactions}
+          transactions={monthTransactions}
           categories={categories}
           onDeleteSuccess={loadData}
         />
